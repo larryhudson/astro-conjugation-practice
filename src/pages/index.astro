@@ -1,0 +1,160 @@
+---
+import { conjugationGroups, persons, infinitiveVerbs } from "@src/constants";
+import {
+	getRandomArrItem,
+	getCorrectConjugation,
+	generateSentence,
+} from "@src/utils";
+import { Debug } from "astro:components";
+
+const verb = getRandomArrItem(infinitiveVerbs);
+const helpUrl = `https://www.wordreference.com/fren/${encodeURIComponent(verb)}`;
+const person = getRandomArrItem(persons).name;
+const selectedConjugationKeys =
+	Astro.url.searchParams.getAll("conjugations") || [];
+
+const conjugationKey = getRandomArrItem(selectedConjugationKeys);
+const conjugation = conjugationGroups
+	.flatMap((group) => group.subgroups)
+	.find((subgroup) => subgroup.name === conjugationKey);
+
+let correctConjugation, randomSentence, beforeConj, afterConj;
+
+if (conjugation) {
+	correctConjugation = await getCorrectConjugation({
+		verb,
+		person,
+		conjugation,
+	});
+
+	randomSentence = await generateSentence({
+		verb,
+		person,
+		conjugation,
+	});
+
+	[beforeConj, afterConj] = randomSentence.split("[CONJUGAISON]");
+}
+---
+
+<html lang="fr">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="viewport" content="width=device-width" />
+		<meta name="generator" content={Astro.generator} />
+		<title>Astro</title>
+	</head>
+	<body>
+		<h1>Conjugation tester</h1>
+		<form>
+			{
+				randomSentence && (
+					<>
+						<p>
+							Use the <strong>{conjugationKey}</strong> form of{" "}
+							<strong>
+								<a href={helpUrl}>{verb}</a>
+							</strong>{" "}
+							with the pronoun <strong>{person}</strong> to
+							complete the sentence.
+						</p>
+						<div class="question">
+							<label>
+								{beforeConj}
+								<input
+									id="answer-input"
+									data-answer={correctConjugation}
+									type="text"
+									placeholder={verb}
+								/>
+								{afterConj}
+							</label>
+						</div>
+						<details>
+							<summary>Show answer</summary>
+							<div>{correctConjugation}</div>
+						</details>
+					</>
+				)
+			}
+
+			{randomSentence && <button type="submit">Another!</button>}
+			<h2>Choose your conjugations</h2>
+			{
+				conjugationGroups.map((group) => (
+					<fieldset>
+						<legend>{group.name}</legend>
+						{group.subgroups.map((subgroup) => (
+							<label>
+								<input
+									type="checkbox"
+									name="conjugations"
+									value={subgroup.name}
+									checked={selectedConjugationKeys.includes(
+										subgroup.name,
+									)}
+								/>
+								{subgroup.name}
+							</label>
+						))}
+					</fieldset>
+				))
+			}
+			<button type="submit">Start</button>
+		</form>
+
+		<details>
+			<summary>View full word list</summary>
+			<div>
+				<ul>
+					{
+						infinitiveVerbs.map((verb) => (
+							<li>
+								<a
+									href={`https://www.wordreference.com/fren/${encodeURIComponent(verb)}`}
+								>
+									{verb}
+								</a>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+
+			<script>
+				const answerInput = document.getElementById("answer-input");
+
+				answerInput.addEventListener("input", function (event) {
+					if (event.target.value === this.dataset.answer) {
+						this.style.backgroundColor = "lightgreen";
+					} else {
+						this.style.backgroundColor = "";
+					}
+				});
+			</script>
+
+			<style>
+				body {
+					font-family: sans-serif;
+					max-width: 48rem;
+					margin: 0 auto;
+					line-height: 1.5;
+				}
+
+				form {
+					margin-top: 2rem;
+				}
+
+				.question {
+					font-size: 2rem;
+				}
+
+				input {
+					font-size: inherit;
+					text-align: center;
+				}
+			</style>
+		</details>
+	</body>
+</html>
